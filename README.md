@@ -1,21 +1,19 @@
 import sqlite3
 import tkinter as tk
-from tkinter import messagebox
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 
-# Configuração e Inicialização do Banco de Dados (SQLite)
-def inicializar_banco():
-    conn = sqlite3.connect("clientes.db")
+# --- CONFIGURAÇÃO DO BANCO DE DADOS ---
+def init_db():
+    conn = sqlite3.connect("cadastro_clientes.db")
     cursor = conn.cursor()
-    # Cria a tabela conforme especificado nas questões da prova
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
             email TEXT NOT NULL,
-            telefone TEXT NOT NULL
+            telefone TEXT
         )
     """
     )
@@ -23,131 +21,133 @@ def inicializar_banco():
     conn.close()
 
 
-# Função para salvar os dados do cliente no banco de dados
-def salvar_cliente():
-    nome = entry_nome.get().strip()
-    email = entry_email.get().strip()
-    telefone = entry_telefone.get().strip()
+# --- FUNÇÕES DO SISTEMA ---
+def cadastrar_cliente():
+    nome = entry_nome.get()
+    email = entry_email.get()
+    telefone = entry_telefone.get()
 
-    # Validação: Garanta que todos os campos sejam preenchidos
-    if not nome or not email or not telefone:
+    if not nome or not email:
         messagebox.showwarning(
-            "Atenção", "Todos os campos devem ser preenchidos!"
+            "Aviso", "Os campos Nome e E-mail são obrigatórios!"
         )
         return
 
-    try:
-        conn = sqlite3.connect("clientes.db")
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO clientes (nome, email, telefone) VALUES (?, ?, ?)",
-            (nome, email, telefone),
-        )
-        conn.commit()
-        conn.close()
+    conn = sqlite3.connect("cadastro_clientes.db")
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO clientes (nome, email, telefone) VALUES (?, ?, ?)",
+        (nome, email, telefone),
+    )
+    conn.commit()
+    conn.close()
 
-        messagebox.showinfo("Sucesso", "Cliente salvo com sucesso!")
-        limpar_formulario()  # Limpa o formulário após salvar
+    messagebox.showinfo("Sucesso", "Cliente cadastrado com sucesso!")
 
-    except Exception as e:
-        messagebox.showerror(
-            "Erro", f"Ocorreu um erro ao salvar no banco de dados: {e}"
-        )
-
-
-# Função para limpar o formulário
-def limpar_formulario():
+    # Limpa os campos após o cadastro
     entry_nome.delete(0, tk.END)
     entry_email.delete(0, tk.END)
     entry_telefone.delete(0, tk.END)
 
 
-# Função para visualizar os dados dos clientes em uma nova janela
-def visualizar_clientes():
-    janela_visualizacao = tk.Toplevel()
-    janela_visualizacao.title("Clientes Cadastrados")
-    janela_visualizacao.geometry("500x300")
+# REQUISITO A INCLUIR: Funcionalidade "Visualizar Clientes"
+def abrir_janela_visualizacao():
+    # Cria uma nova janela (Toplevel)
+    janela_visualizar = tk.Toplevel(root)
+    janela_visualizar.title("Clientes Cadastrados")
+    janela_visualizar.geometry("600x400")
 
-    # Estrutura de tabela Treeview com 4 colunas para exibição
-    tree = ttk.Treeview(
-        janela_visualizacao,
-        columns=("ID", "Nome", "Email", "Telefone"),
-        show="headings",
+    # Título interno
+    lbl_titulo = tk.Label(
+        janela_visualizar,
+        text="Histórico de Clientes",
+        font=("Arial", 14, "bold"),
     )
-    tree.heading("ID", text="ID")
-    tree.heading("Nome", text="Nome")
-    tree.heading("Email", text="Email")
-    tree.heading("Telefone", text="Telefone")
+    lbl_titulo.pack(pady=10)
 
-    # Ajuste de largura das colunas
-    tree.column("ID", width=50, anchor="center")
-    tree.column("Nome", width=150)
-    tree.column("Email", width=150)
-    tree.column("Telefone", width=120)
+    # Criação da tabela (Treeview) para mostrar os dados
+    colunas = ("ID", "Nome", "E-mail", "Telefone")
+    tabela = ttk.Treeview(
+        janela_visualizar, columns=colunas, show="headings", height=15
+    )
 
-    tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+    # Define os cabeçalhos das colunas
+    tabela.heading("ID", text="ID")
+    tabela.heading("Nome", text="Nome")
+    tabela.heading("E-mail", text="E-mail")
+    tabela.heading("Telefone", text="Telefone")
 
-    try:
-        conn = sqlite3.connect("clientes.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM clientes")
-        for row in cursor.fetchall():
-            tree.insert("", tk.END, values=row)
-        conn.close()
-    except Exception as e:
-        messagebox.showerror("Erro", f"Erro ao carregar dados: {e}")
+    # Define a largura das colunas
+    tabela.column("ID", width=50, anchor="center")
+    tabela.column("Nome", width=180)
+    tabela.column("E-mail", width=200)
+    tabela.column("Telefone", width=120)
+
+    # Busca os dados no banco de dados para popular a tabela
+    conn = sqlite3.connect("cadastro_clientes.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM clientes")
+    rows = cursor.fetchall()
+
+    for row in rows:
+        tabela.insert("", tk.END, values=row)
+
+    conn.close()
+
+    # Adiciona uma barra de rolagem
+    scrollbar = ttk.Scrollbar(
+        janela_visualizar, orient=tk.VERTICAL, command=tabela.yview
+    )
+    tabela.configure(yscrollcommand=scrollbar.set)
+
+    # Empacota a tabela e a barra de rolagem na janela
+    tabela.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0), pady=10)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 10), pady=10)
 
 
-# Inicializa a estrutura do banco de dados antes de abrir a janela
-inicializar_banco()
+# --- INTERFACE GRÁFICA PRINCIPAL ---
+init_db()  # Garante que o banco de dados e a tabela existam
 
-# Configuração da Interface Gráfica Principal (Tkinter)
-janela = tk.Tk()
-janela.title("Cadastro de Clientes")
-janela.geometry("400x280")
-janela.resizable(False, False)
+root = tk.Tk()
+root.title("Formulário de Cadastro de Clientes")
+root.geometry("400x300")
 
-# Configuração de layout estruturado
-padding_options = {"padx": 15, "pady": 8}
+# Elementos visuais da janela principal
+lbl_nome = tk.Label(root, text="Nome:", font=("Arial", 10))
+lbl_nome.pack(pady=(15, 2))
+entry_nome = tk.Entry(root, width=40)
+entry_nome.pack()
 
-# Rótulos (Labels) e Campos de Entrada (Entries)
-tk.Label(janela, text="Nome:").grid(row=0, column=0, sticky="w", **padding_options)
-entry_nome = tk.Entry(janela, width=32)
-entry_nome.grid(row=0, column=1, **padding_options)
+lbl_email = tk.Label(root, text="E-mail:", font=("Arial", 10))
+lbl_email.pack(pady=(10, 2))
+entry_email = tk.Entry(root, width=40)
+entry_email.pack()
 
-tk.Label(janela, text="E-mail:").grid(row=1, column=0, sticky="w", **padding_options)
-entry_email = tk.Entry(janela, width=32)
-entry_email.grid(row=1, column=1, **padding_options)
+lbl_telefone = tk.Label(root, text="Telefone:", font=("Arial", 10))
+lbl_telefone.pack(pady=(10, 2))
+entry_telefone = tk.Entry(root, width=40)
+entry_telefone.pack()
 
-tk.Label(janela, text="Telefone:").grid(
-    row=2, column=0, sticky="w", **padding_options
+# Botão para salvar o cadastro
+btn_cadastrar = tk.Button(
+    root,
+    text="Cadastrar Cliente",
+    command=cadastrar_cliente,
+    bg="#4CAF50",
+    fg="white",
+    font=("Arial", 10, "bold"),
 )
-entry_telefone = tk.Entry(janela, width=32)
-entry_telefone.grid(row=2, column=1, **padding_options)
+btn_cadastrar.pack(pady=20)
 
-# Contêiner para organizar os botões alinhados na parte inferior
-frame_botoes = tk.Frame(janela)
-frame_botoes.grid(row=3, column=0, columnspan=2, pady=20)
-
-# Botões do formulário (Salvar, Limpar e o botão Visualizar exigido na questão 3)
-btn_salvar = tk.Button(
-    frame_botoes, text="Salvar", command=salvar_cliente, bg="#4CAF50", fg="white"
-)
-btn_salvar.pack(side="left", padx=5)
-
-btn_limpar = tk.Button(
-    frame_botoes, text="Limpar", command=limpar_formulario, bg="#f44336", fg="white"
-)
-btn_limpar.pack(side="left", padx=5)
-
+# Botão acrescentado para atender ao requisito do exercício
 btn_visualizar = tk.Button(
-    frame_botoes,
+    root,
     text="Visualizar Clientes",
-    command=visualizar_clientes,
+    command=abrir_janela_visualizacao,
     bg="#2196F3",
     fg="white",
+    font=("Arial", 10, "bold"),
 )
-btn_visualizar.pack(side="left", padx=5)
+btn_visualizar.pack()
 
-# Inicia o loop da aplicação gráfica
-janela.mainloop()
+root.mainloop()
